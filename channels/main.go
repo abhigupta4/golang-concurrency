@@ -22,14 +22,26 @@ func bufferedChannel() {
 	}
 }
 
+func bufferedChannelIterator() {
+	buffCh := make(chan int, 10)
+	go addNumbers(buffCh)
+
+	for i := range buffCh {
+		fmt.Println(i)
+	}
+}
+
 func addNumbers(ch chan int) {
 	for i := 0; i < 5; i++ {
 		ch <- i
 	}
+
+	close(ch)
 }
 
 func main() {
-	// unbufferedChannel()
+	unbufferedChannel()
 
 	bufferedChannel()
+	bufferedChannelIterator()
 }
