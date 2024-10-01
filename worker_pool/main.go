@@ -1,7 +1,5 @@
 package main
 
-import "time"
-
 func work(id int, jobs chan int) {
 
 	for job := range jobs {
@@ -24,6 +22,5 @@ func main() {
 	}
 
 	println("waiting for jobs to finish")
-	time.Sleep(2 * time.Second)
 	close(jobs)
 }
