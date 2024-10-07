@@ -1,47 +1,66 @@
 package main
 
-import (
-	"fmt"
-	"sync"
-	"time"
-)
+import "sync"
 
-func printEven(cpe *sync.Cond, cpo *sync.Cond, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for i := 2; i <= 100; i += 2 {
-		cpe.L.Lock()
-		cpe.Wait()
-		fmt.Println(i)
-		cpo.Signal()
-		cpe.L.Unlock()
-	}
+type OddEven struct {
+	Mutex      *sync.Mutex
+	Wg         *sync.WaitGroup
+	OddTurn    bool
+	IsEvenDone *sync.Cond
+	IsOddDone  *sync.Cond
 }
 
-func printOdd(cpe *sync.Cond, cpo *sync.Cond, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for i := 1; i <= 99; i += 2 {
-		cpo.L.Lock()
-		cpo.Wait()
-		fmt.Println(i)
-		cpe.Signal()
-		cpo.L.Unlock()
+func (oe *OddEven) printEven() {
+	defer oe.Wg.Done()
+
+	for i := 0; i < 100; i += 2 {
+		oe.Mutex.Lock()
+
+		for oe.OddTurn {
+			oe.IsOddDone.Wait()
+		}
+		println(i)
+		oe.OddTurn = true
+		oe.IsEvenDone.Signal()
+
+		oe.Mutex.Unlock()
+	}
+
+}
+
+func (oe *OddEven) printOdd() {
+	defer oe.Wg.Done()
+
+	for i := 1; i < 100; i += 2 {
+		oe.Mutex.Lock()
+
+		for !oe.OddTurn {
+			oe.IsEvenDone.Wait()
+		}
+		println(i)
+		oe.OddTurn = false
+		oe.IsOddDone.Signal()
+
+		oe.Mutex.Unlock()
 	}
 }
 
 func main() {
-	var wg sync.WaitGroup
-	mutex := sync.Mutex{}
 
-	canPrintEven := sync.NewCond(&mutex)
-	canPrintOdd := sync.NewCond(&mutex)
+	mutex := sync.Mutex{}
+	wg := sync.WaitGroup{}
+	isEvenDone := sync.NewCond(&mutex)
+	isOddDone := sync.NewCond(&mutex)
+	oe := OddEven{
+		Mutex:      &mutex,
+		Wg:         &wg,
+		IsEvenDone: isEvenDone,
+		IsOddDone:  isOddDone,
+	}
 
 	wg.Add(2)
-
-	go printEven(canPrintEven, canPrintOdd, &wg)
-	go printOdd(canPrintEven, canPrintOdd, &wg)
-
-	time.Sleep(time.Second)
-	canPrintOdd.Signal()
+	go oe.printEven()
+	go oe.printOdd()
 
 	wg.Wait()
 }
